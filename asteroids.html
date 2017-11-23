@@ -1,0 +1,647 @@
+<html>
+<head>
+<script>
+var canvas, ctx;
+var gameStarted;
+
+var asteroidVertices = [];
+var asteroids = [];
+var spaceshipVertices = [];
+var bulletVertices = [];
+var spaceship;
+var bullets = [];
+var score = 0;
+var context;
+var lives = 3;
+var invinsible = false;
+var iteration =0;
+var deathFrame =0;
+var levelNumber=1;
+var drawAlien=true;
+var alien;
+var alienVertices =[];
+var numAsteroids = 8;
+var highScoreArray =[];
+
+/*function to reset variables to defaults
+ used when resetting the game after death*/
+function declareVariables(){
+ asteroidVertices = [];
+ asteroids = [];
+ spaceshipVertices = [];
+ bulletVertices = [];
+ spaceship;
+ bullets = [];
+ levelNumber=1;
+ score = 0;
+ lives=3;
+ invinsible = false;
+ iteration =0;
+ deathFrame =0;
+ numAsteroids=8;
+ drawAlien=true;
+ alien;
+ alienVertices =[];
+}
+
+/*function to sort an input array by a particular key
+	used to order the highscore array*/
+function sortByKey(array, key) {
+    return array.sort(function(a, b) {
+        var x = a[key]; var y = b[key];
+        return -1*( ((x < y) ? -1 : ((x > y) ? 1 : 0)));
+    });
+}
+
+/*this function displays the game over screen once all lives have been used
+	*/
+function end_screen(){
+
+	ctx.font = "50px Impact";
+	ctx.fillStyle = "#0099CC";
+	ctx.textAlign = "center";
+	ctx.fillText("Game Over", canvas.width/2, canvas.height/2);
+
+	ctx.font = "40px Arial";
+	ctx.fillText("HighScores", canvas.width/2, canvas.height/2 + 50);
+
+
+	// print the highscore array
+	ctx.font = "20px Arial";
+	sortByKey(highScoreArray,"score");
+
+	for(var i=0; i<highScoreArray.length; i++){
+	ctx.fillText("Name: "+ highScoreArray[i].name + " - Score: " + highScoreArray[i].score, canvas.width/2, (canvas.height/2 + (80 +i*20)));
+	}
+
+	//Code to restart the game
+	ctx.fillText("Press Enter To Restart the Game", canvas.width/2, canvas.height/2 + 250);
+
+	gameStarted = false;
+	declareVariables();
+}
+
+/*This function is used for displaying the intro screen
+	when the games starts,
+	and it calls the functions to initialize the gamep*/
+function intro_screen(){
+	 canvas = document.getElementById("canvas");
+	 ctx = canvas.getContext("2d");
+
+	ctx.font = "50px Impact";
+	ctx.fillStyle = "#0099CC";
+	ctx.textAlign = "center";
+	ctx.fillText("Asteroids", canvas.width/2, canvas.height/2);
+
+	ctx.font = "20px Arial";
+	ctx.fillText("Press Enter To Start Game", canvas.width/2, canvas.height/2 + 50);
+
+	gameStarted = false;
+	setPlayable();
+}
+
+/*this function processes the ending of the game,
+	clears screen, calls end_screen() to show the 
+	end screen with highscores to the user*/
+function endGame(){
+	gameStarted=false;
+		
+	asteroidVertices.length = 0;
+	asteroids.length = 0;
+		
+	ctx.clearRect(0,0,canvas.width,canvas.height);
+	end_screen();
+}
+
+/*method to enable user to start the game by pressing enter*/
+function setPlayable(){
+	if(gameStarted != true){
+		document.addEventListener("keydown", function(event){
+
+			if(event.keyCode == 13 && !gameStarted){
+				startGame();
+			}
+		});
+	}
+}
+
+/*function to remove text from introscreen
+	and to start the game*/
+function startGame(){
+	gameStarted = true;
+	ctx.clearRect(0,0,canvas.width,canvas.height);
+	init();
+}
+
+function init() {
+	context=ctx;
+	ctx.font = "20px Comic Sans MS";
+	ctx.fillStyle = "black";
+	ctx.textAlign = "center";
+
+	 asteroidVertices.push({x:-1, y:2});
+	 asteroidVertices.push({x:3, y:1});
+	 asteroidVertices.push({x:4, y:-2});
+	 asteroidVertices.push({x:0, y:-3});
+	 asteroidVertices.push({x:-3, y:-2});
+	 asteroidVertices.push({x:-2, y:0});
+
+	 bulletVertices.push({x:-0.5, y:0.5});
+	 bulletVertices.push({x:0.5, y:0.5});
+	 bulletVertices.push({x:0.5, y:-0.5});
+	 bulletVertices.push({x:-0.5, y:-0.5});
+
+	 spaceshipVertices.push({x:0, y:2});
+	 spaceshipVertices.push({x:1, y:0});
+	 spaceshipVertices.push({x:0, y:-1});
+	 spaceshipVertices.push({x:-1, y:0});
+
+	 alienVertices.push({x:4 ,y:-1}) ; 
+	 alienVertices.push({x:2.5 ,y:0}) ;
+	 alienVertices.push({x:-2.5 ,y:0}) ;
+	 alienVertices.push({x:-4 ,y:-1 });
+	 alienVertices.push({x:4 ,y:-1}) ; 
+	 alienVertices.push({x:2 ,y:-2 }); 
+	 alienVertices.push({x:-2 ,y:-2}) ; 
+	 alienVertices.push({x:-4 ,y:-1 });
+	 alienVertices.push({x:-2 ,y:-2}) ; 
+	 alienVertices.push({x:-1.5 ,y:-3.5 }); 
+	 alienVertices.push({x:1.5 ,y:-3.5}) ; 
+	 alienVertices.push({x:2 ,y:-2 }); 
+
+	 setKeyHandlers();
+	 spawnAsteroids();
+
+	 //spawn alien if it hasn't been shot
+	 if(drawAlien==true){
+	 spawnAlien();
+	}
+	 spawnSpaceship();
+	 gameLoop();
+}
+
+function setKeyHandlers() 
+{
+	document.onkeydown = function(event) 
+	{
+		 var code = (event.keyCode || event.charCode);
+		 if (code==37) // left arrow
+		 spaceship.drot = -0.2;
+
+		 else if (code==39) // right arrow
+		 spaceship.drot = 0.2;
+
+		 else if (code==38) // up arrow
+		 spaceship.thrust = true;
+
+		else if (code==32){
+		spawnBullet(spaceship);
+		}
+	};
+
+	document.onkeyup = function(event) 
+	{
+		 var code = (event.keyCode || event.charCode);
+		 if (code==37 || code==39)
+		 spaceship.drot = 0;
+
+		 else if (code==38)
+		 spaceship.thrust = false;
+	};
+}
+
+
+function spawnAsteroids() 
+{
+	  for (var i=0; i<numAsteroids; i++) 
+	 {
+		 var a = 
+		 { x:Math.random()*200, y:Math.random()*200, // x,y positions
+		rot:Math.random()*2*Math.PI,			 // facing
+		scale:5+Math.random()*8,					// scale
+		dx:(Math.random()-0.5)*10, dy:(Math.random()-0.5)*10, //speeds
+		drot:(Math.random()-0.5)*0.2,					//spdRotation
+		 vertices:asteroidVertices,
+		 splittable: true
+		 };
+
+		 asteroids.push(a);
+	 }
+}
+
+/*spawn bullets for the spaceship and theh alienship*/
+function spawnBullet(object){
+		 var b = 
+		 { x:object.x, y:object.y, // x,y positions
+		 	rot:object.rot,
+			scale:2,					// scale
+			// dx:-1*(Math.sin(object.rot)),
+			// dy:Math.cos(object.rot),
+			drot:object.drot,					//spdRotation
+			vertices:bulletVertices,
+			type:object.type
+		};
+
+		/*set different velocites depending on if its spaceship or
+			alien:
+		alien ship will shoot at random:
+		spaceship will shoot in direction or ship*/
+			if(object.type=="spaceship"){
+			b.dx=-1*(Math.sin(object.rot));
+			b.dy=Math.cos(object.rot);
+			}
+
+			else{
+			b.dx=(Math.sin(Math.random()-0.5)*6);
+			b.dy=(Math.sin(Math.random()-0.5)*6);
+			}
+
+	//add the bullet to the bullets array
+	 bullets.push(b);
+}
+
+
+function spawnSpaceship() 
+{				//xpos,ypos,rotaion,scale,x vel, y vel, vel rot
+ spaceship = {x:300, y:300, rot:0, scale:10, dx:0, dy:0, drot:0,
+				vertices:spaceshipVertices, thrust:false, type:"spaceship"};
+}
+
+/*this function spawns an alien ship with random start direction, velocity*/
+function spawnAlien() 
+{		
+ alien = {
+ 		x:300, y:150, rot:0, scale:10, 
+ 		//dx:0 ,dy:0,
+ 		dx:(Math.random()-0.5)*10, dy:(Math.random()-0.5)*10,
+ 		 drot:0,
+		vertices:alienVertices, thrust:false , type:"alien"};
+}
+
+
+/*this function is used to add your score the the highscore table
+	after players has died
+	Highscores array will show 5 highest scores*/
+function addScore(score){
+
+	//getting the users name
+	var x = prompt("Game Over. Please enter your name");
+
+		while(x=="" || x==null){
+			x = prompt("Game Over. Please enter your name");
+		}
+
+	if(x!=null){
+		var name =x;
+	}
+	
+	//user score object 
+	var UserScore = {
+		name:name,
+		score:score
+	};
+
+	// if theres room on the highscore array -> add the score
+	if(highScoreArray.length<5){
+		highScoreArray.push(UserScore);
+	}
+
+	/*if theres already 5 scores, add the score,
+		sort the array by size and remove the
+		lowest score*/
+	else if(highScoreArray.length==5){
+		highScoreArray.push(UserScore);
+		sortByKey(highScoreArray,"score");
+		highScoreArray.splice(5,1);
+	}
+}
+
+/*this function process the user score when player dies
+	and calls the end game function*/
+function gameOver(score){
+		addScore(score);
+		endGame();
+}
+
+function gameLoop() 
+{
+	if(gameStarted){
+	 window.setTimeout(gameLoop, 1000/30);
+	 ctx.fillStyle = "rgb(190,190,190)";
+	 ctx.fillRect (0, 0, 600, 600);
+
+	 iteration++;
+
+	 for (var i=0; i<asteroids.length; i++) 
+	 {
+		updateObject(asteroids[i]);
+		drawObject(asteroids[i]);
+
+		//check if the spaceship is vulnerable to
+		// loss of life
+		checkRevertInvinsible(iteration);
+
+
+		/*if spaceship is not invinsible:
+			check if it collided with any asteroids,alienship or bullets*/
+	if(invinsible !=true){
+		if(collisionDetection(asteroids[i],spaceship)){
+			lives = lives-1;
+			resetSpaceShip(spaceship);
+
+			deathFrame=iteration;
+			invincibleAfterDeath(iteration);
+
+			if(lives ==0){
+				gameOver(score);
+			}
+		};
+
+		if(drawAlien==true && collisionDetection(alien,spaceship)){
+			console.log("bang");
+
+			lives = lives-1;
+			resetSpaceShip(spaceship);
+			deathFrame=iteration;
+			invincibleAfterDeath(iteration);
+
+			if(lives ==0){
+				gameOver(score);
+			}
+		}
+	}
+
+		for(var j=0;j<bullets.length;j++){
+
+			if(bullets[j].type=="spaceship"){
+
+				if(collisionDetection(asteroids[i],bullets[j])){
+		 		//if(collisionDetection(asteroids[i],bullets[j].x,bullets[j].y)){
+		 			//if(collisionDetection2(asteroids[i],bullets[j])){
+		 			bullets.splice(j,1);
+		 			splitAsteroid(asteroids[i],i)
+		 			console.log("hit");
+		 			score += 10;
+		 		}
+
+		 		if(drawAlien==true){
+			 		if(collisionDetection(alien,bullets[j])){
+			 			console.log("---------");
+			 			score +=50;
+			 			alien=null;
+			 			drawAlien = false;
+			 		}
+			 	}
+		 	}
+
+		 	if(bullets[j].type=="alien" && collisionDetection(spaceship,bullets[j])){
+		 		bullets.splice(j,1);
+		 		lives =lives-1;
+		 		console.log("alient hit ----");
+
+		 		if(lives==0){
+		 			gameOver(score);
+		 		}
+
+		 	resetSpaceShip(spaceship);
+
+			deathFrame=iteration;
+			invincibleAfterDeath(iteration);
+		 	}
+	 	}
+
+	 }
+
+	 if (spaceship.thrust) 
+	 {
+		 spaceship.dx -= Math.sin(spaceship.rot);
+		 spaceship.dy += Math.cos(spaceship.rot);
+	 }
+
+	 /*draw alien ship if its not dead*/
+	 if(drawAlien==true){
+	 updateObject(alien);
+	 drawObject(alien);
+	}
+
+	 updateObject(spaceship);
+	 drawObject(spaceship);
+
+	 //draw bullets if there is any
+	 if(bullets.length>=1)
+	 {
+		 for(var i=0;i<bullets.length;i++){
+		 updateBullet(bullets[i]);
+		 drawObject(bullets[i]);
+		 cleanBullets(bullets[i],i);
+		}
+	}
+
+	/*check if a level is over
+	if so -> increment number of asteroids, spawn them, and
+		spawn the alien ship again*/
+	if(asteroids.length==0 && drawAlien==false && gameStarted){
+		levelNumber=levelNumber+1;
+		numAsteroids += 1;
+		drawAlien=true;
+		bullets=[];
+		spawnAsteroids();
+		spawnAlien();
+	}
+
+	/*shoot a bullet from alien ship every 
+	37 iterations*/
+	if(drawAlien==true){
+		if(iteration%37 ==0 ){
+			spawnBullet(alien);
+		}
+	}
+
+	//draw the score and number of lives left onto the screen
+	context.fillStyle = "#FFFFFF";
+	var scoreString = "Score " + score;
+	context.fillText("Level " + levelNumber, 325,25);
+	context.fillText("Lives = " + lives, 410,25);
+	context.fillText(scoreString,500,25);
+	}
+
+}
+
+	/*function used to determine when
+	the player spaceship resumes being
+	vulnerable to death from alienship 
+	asteroids*/
+	function checkRevertInvinsible(i){
+		if(i>=(deathFrame+100)){
+			invinsible=false;
+		}
+	}
+
+	/*function to reset spaceship to
+	 middle of screen after it looses
+	 a life */
+	function resetSpaceShip(ship){
+		ship.x=300;
+		ship.y=300;
+		ship.rot=0;
+		ship.dx=0;
+		ship.dy=0;
+		ship.drot=0;
+	}
+
+function splitAsteroid(ast,index){
+	//remove old asteroid
+	asteroids.splice(index,1);
+
+	// create 2 new ones , with smaller scale with rand vals
+
+	if(ast.splittable == true){
+		for(var i=0; i<2; i++){
+			 var a = 
+			 { 
+			 x:ast.x, y:ast.y,
+			rot:Math.random()*2*Math.PI,			 // facing
+			scale: ast.scale * 0.5,
+			dx:(Math.random()-0.5)*10, dy:(Math.random()-0.5)*10, //speeds
+			drot:(Math.random()-0.5)*0.2,					//spdRotation
+			vertices:asteroidVertices,
+			splittable: false // new asteroids are not capable of being 
+			// split any further
+			};
+
+		 asteroids.push(a);
+		}
+	}
+}
+
+/*function to make spaceship invinsible after death
+	for a few seconds*/
+function invincibleAfterDeath(iterationNum){
+	invinsible = true;
+	
+	var d = new Date();
+	var n = d.getMilliseconds();
+}
+
+
+// Point inside a polygon
+// take in an object with array of vertices and a point to test is inside 
+//	the vertices
+/*	For: all x any y points in the vertices array
+		if: Y is between(y and prev y), AND X is less than projection on x-axis
+			alternate colission Boolean(which is always initiated to false)
+	
+	return the colission boolean
+		*/
+function collisionDetection(obj,pnt){
+
+	var X=pnt.x;
+	var Y=pnt.y;
+
+	var colissionBool= false;
+
+	for(var i=0, j=obj.vertices.length-1 ; i<obj.vertices.length; i++){
+
+		var pt1 = getTransformedVertex(obj.vertices[i],obj);
+		var pt2 = getTransformedVertex(obj.vertices[j],obj);
+
+		var xi = pt1.x; //px1
+		var yi = pt1.y; //py1
+
+		var xj = pt2.x; //px2
+		var yj = pt2.y; //py2
+
+		if(((yi>Y) != (yj>Y)) && (X<(xj-xi) * (Y-yi) / (yj-yi) + xi)){
+			colissionBool=!colissionBool;
+		}
+		j=i;
+	}
+		return colissionBool;
+}
+
+/*function to update an input bullets positions*/
+function updateBullet(b){
+	 b.x += b.dx*5;
+	 b.y += b.dy*5;
+}
+
+//remove bullets that go offscreen from array
+function cleanBullets(bullet, i){
+
+		 if (bullet.x<-20)
+		bullets.splice(i, 1);
+
+		 else if (bullet.x>620)
+		bullets.splice(i, 1);
+
+		 if (bullet.y<-20)
+		bullets.splice(i, 1);
+
+		 else if (bullet.y>620)
+		 bullets.splice(i, 1);
+}
+
+function updateObject(object) {
+	 object.x += object.dx; // add vel to dir
+	 object.y += object.dy;
+
+	 // if goes off screen left or right:
+	 // spawn on other side
+	 if (object.x<-20)
+	 object.x += 640;
+
+	// if goes up,dowm:
+	// spawn on opposite 
+	 else if (object.x>620)
+	 object.x -= 640;
+
+	 if (object.y<-20)
+	 object.y += 640;
+
+	 else if (object.y>620)
+	 object.y -= 640;
+	 object.rot += object.drot;
+
+}
+
+function drawObject(o) {
+
+	if(gameStarted){
+	 var pt = getTransformedVertex(o.vertices[0], o);
+	 ctx.beginPath();
+	 ctx.moveTo(pt.x, pt.y);
+
+		 for (var i=1; i<o.vertices.length; i++) 
+		 {
+			 var pt2 = getTransformedVertex(o.vertices[i], o);
+			 ctx.lineTo(pt2.x, pt2.y);
+		 }
+	 ctx.lineTo(pt.x, pt.y);
+	 ctx.stroke();
+
+	}
+}
+
+
+function getTransformedVertex(vertex, object) {
+	 // rotate
+	 var x = vertex.x * Math.cos(object.rot) - vertex.y *
+	Math.sin(object.rot);
+	 var y = vertex.x * Math.sin(object.rot) + vertex.y *
+	Math.cos(object.rot);
+	 // scale
+	 x *= object.scale;
+	 y *= object.scale;
+	 // translate
+	 x += object.x;
+	 y += object.y;
+	 return {x:x, y:y};
+}
+
+</script>
+</head>
+<body onload="intro_screen();">
+<center>
+<canvas id="canvas" width="600" height="600"></canvas>
+</body>
+</html>
